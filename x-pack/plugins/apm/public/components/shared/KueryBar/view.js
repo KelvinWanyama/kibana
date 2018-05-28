@@ -13,11 +13,8 @@ import {
   legacyEncodeURIComponent
 } from '../../../utils/url';
 import { debounce } from 'lodash';
-
-import { EuiFieldSearch } from '@elastic/eui';
-
+import { Typeahead } from '../Typeahead';
 import { getAPMIndexPattern } from '../../../services/rest';
-
 import { convertKueryToEsQuery, getSuggestions } from '../../../services/kuery';
 import styled from 'styled-components';
 
@@ -28,7 +25,8 @@ const Container = styled.div`
 class KueryBarView extends Component {
   state = {
     indexPattern: null,
-    inputValue: this.props.urlParams.kuery || ''
+    selectionStart: 0,
+    suggestions: []
   };
 
   componentDidMount() {
@@ -37,27 +35,25 @@ class KueryBarView extends Component {
     });
   }
 
-  componentWillReceiveProps(nextProps) {
-    const kuery = nextProps.urlParams.kuery;
-    if (kuery && !this.state.inputValue) {
-      this.setState({ inputValue: kuery });
-    }
-  }
-
-  updateUrl = debounce(kuery => {
-    const { location } = this.props;
+  onChange = debounce((inputValue, selectionStart) => {
     const { indexPattern } = this.state;
 
     if (!indexPattern) {
       return;
     }
 
-    getSuggestions(kuery, indexPattern).then(
-      suggestions => console.log(suggestions.map(suggestion => suggestion.text)) // eslint-disable-line no-console
+    getSuggestions(inputValue, selectionStart, indexPattern).then(
+      suggestions => {
+        this.setState({ suggestions });
+      }
     );
+  }, 200);
 
+  onSubmit = inputValue => {
+    const { indexPattern } = this.state;
+    const { location } = this.props;
     try {
-      const res = convertKueryToEsQuery(kuery, indexPattern);
+      const res = convertKueryToEsQuery(inputValue, indexPattern);
       if (!res) {
         return;
       }
@@ -66,28 +62,22 @@ class KueryBarView extends Component {
         ...location,
         search: fromQuery({
           ...toQuery(this.props.location.search),
-          kuery: legacyEncodeURIComponent(kuery)
+          kuery: legacyEncodeURIComponent(inputValue)
         })
       });
     } catch (e) {
       console.log('Invalid kuery syntax'); // eslint-disable-line no-console
     }
-  }, 200);
-
-  onChange = event => {
-    const kuery = event.target.value;
-    this.setState({ inputValue: kuery });
-    this.updateUrl(kuery);
   };
 
   render() {
     return (
       <Container>
-        <EuiFieldSearch
-          placeholder="Search... (Example: transaction.duration.us > 10000)"
-          fullWidth
+        <Typeahead
+          initialValue={this.props.urlParams.kuery}
           onChange={this.onChange}
-          value={this.state.inputValue}
+          onSubmit={this.onSubmit}
+          suggestions={this.state.suggestions}
         />
       </Container>
     );

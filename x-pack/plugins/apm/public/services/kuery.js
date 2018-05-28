@@ -15,7 +15,7 @@ export function convertKueryToEsQuery(kuery, indexPattern) {
   return toElasticsearchQuery(ast, indexPattern);
 }
 
-export async function getSuggestions(query, apmIndexPattern) {
+export async function getSuggestions(query, selectionStart, apmIndexPattern) {
   const config = {
     get: () => true
   };
@@ -26,7 +26,7 @@ export async function getSuggestions(query, apmIndexPattern) {
   });
   return getKuerySuggestions({
     query,
-    selectionStart: query.length,
-    selectionEnd: query.length
+    selectionStart,
+    selectionEnd: selectionStart
   });
 }
